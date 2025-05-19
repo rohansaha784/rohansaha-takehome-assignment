@@ -1,6 +1,6 @@
 module Loan.Approval where
-import DA.Time
 
+-- ─────────────────────────── LoanRequest ────────────────────────────
 template LoanRequest
   with
     borrower     : Party
@@ -13,21 +13,22 @@ template LoanRequest
     signatory borrower
     observer  bank
 
-    -- Bank approves: create a new Loan
+    -- Bank approves → archive request & create Loan
     choice ApproveRequest : ContractId Loan
       with
         approvedOn : Date
       controller bank
       do
         create Loan with
-          borrower = borrower
-          bank     = bank
-          amount   = amount
-          currency = currency
-          termMonths = termMonths
-          interestRate = interestRate
-          approvedOn = approvedOn
+          borrower
+          bank
+          amount
+          currency
+          termMonths
+          interestRate
+          approvedOn
 
+-- ───────────────────────────── Loan ─────────────────────────────────
 template Loan
   with
     borrower     : Party
