@@ -1,6 +1,6 @@
 module Loan.Approval where
+import DA.Time
 
--- LoanRequest data structure
 template LoanRequest
   with
     borrower     : Party
@@ -13,7 +13,14 @@ template LoanRequest
     signatory borrower
     observer  bank
 
--- Loan data structure (empty for now)
+    -- Bank approval stub (not yet creating Loan)
+    choice ApproveRequest : ContractId Loan
+      with
+        approvedOn : Date
+      controller bank
+      do
+        -- TODO: create Loan
+
 template Loan
   with
     borrower     : Party
