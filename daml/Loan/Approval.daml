@@ -1,0 +1,27 @@
+module Loan.Approval where
+
+-- LoanRequest data structure
+template LoanRequest
+  with
+    borrower     : Party
+    bank         : Party
+    amount       : Decimal
+    currency     : Text
+    termMonths   : Int
+    interestRate : Decimal
+  where
+    signatory borrower
+    observer  bank
+
+-- Loan data structure (empty for now)
+template Loan
+  with
+    borrower     : Party
+    bank         : Party
+    amount       : Decimal
+    currency     : Text
+    termMonths   : Int
+    interestRate : Decimal
+    approvedOn   : Date
+  where
+    signatory borrower, bank
