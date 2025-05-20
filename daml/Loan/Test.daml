@@ -4,3 +4,29 @@ import Daml.Script
 import DA.Date               -- provides `date`
 import DA.Optional (Optional(..))  -- Some / None
 import Loan.Approval
+
+-- Happy-path: create & approve a LoanRequest 
+test_LoanWorkflow : Script ()
+test_LoanWorkflow = script do
+  borrower <- allocateParty "Alice"
+  bank     <- allocateParty "BankCorp"
+
+  reqCid <- submit borrower do
+    createCmd LoanRequest with
+      borrower
+      bank
+      amount       = 1000.0
+      currency     = "USD"
+      termMonths   = 12
+      interestRate = 0.05
+
+  loanCid <- submit bank do
+    exerciseCmd reqCid ApproveRequest with
+      approvedOn = date 2025 Mar 01
+
+  mLoan <- queryContractId borrower loanCid
+  loan  <- case mLoan of
+    Some l -> pure l
+    None   -> abort "Loan not found"
+
+  assert (loan.amount == 1000.0)
