@@ -1,10 +1,8 @@
 module LoanExtended.ApprovalWithLimit where
 
-import DA.Time                     -- for Date
-import Daml.Script (queryContractId)
 import DA.Assert   (assertMsg)
 import DA.Optional (Optional(..))
-
+import DA.Time
 -- Token template
 template Token
   with
@@ -24,6 +22,8 @@ template LoanLimit
     currency : Text
   where
     signatory bank
+    key (bank, currency) : (Party, Text)
+    maintainer key._1
 
 -- LoanRequest with limit validation
 template LoanRequest
@@ -32,46 +32,63 @@ template LoanRequest
     bank         : Party
     amount       : Decimal
     currency     : Text
-    termMonths   : Int
-    interestRate : Decimal
   where
     signatory borrower
     observer  bank
 
     choice ApproveRequest : ContractId Loan
       with
-        approvedOn : Date
+        -- instead of looking it up, pass in the LoanLimit CID
+        limitCid    : ContractId LoanLimit
+        approvedOn  : Date
       controller bank
       do
-        -- fetch the bank’s LoanLimit
-        mLimitCid <- queryContractId bank limitCid
-        LoanLimit{limitAmt, currency = curr2} <- case mLimitCid of
-          Some ltd -> pure ltd
-          None     -> abort "No LoanLimit set"
-        -- validate currency match & amount ≤ limit
+        -- fetch the LoanLimit record
+        LoanLimit{limitAmt, currency = curr2} <- fetch limitCid
+        -- validate
         assertMsg "currency mismatch" (curr2 == currency)
         assertMsg "exceeds bank limit" (amount <= limitAmt)
-        -- create the approved Loan
+        -- create the approved Loan with zero disbursed
         create Loan with
-          borrower
-          bank
-          amount
-          currency
-          termMonths
-          interestRate
-          approvedOn
-          disbursed = 0.0
+          bank        = bank
+          borrower    = borrower
+          totalAmount = amount
+          currency    = currency
+          approvedOn  = approvedOn
+          disbursed   = 0.0
 
 -- Loan template extended with a disbursed field
 template Loan
   with
     borrower     : Party
     bank         : Party
-    amount       : Decimal       -- approved total
+    totalAmount  : Decimal       -- approved total
     currency     : Text
-    termMonths   : Int
-    interestRate : Decimal
     approvedOn   : Date
     disbursed    : Decimal       -- total already disbursed
   where
-    signatory borrower, bank
+    signatory bank, borrower
+    choice Disburse : ContractId Token
+      with
+        to      : Party
+        amount' : Decimal
+      controller bank
+      do
+        -- ensure no over-disbursement
+        assertMsg "over-disbursement" (disbursed + amount' <= totalAmount)
+        -- archive the old loan
+        archive self
+        -- 1. recreate loan with updated disbursed
+        _ <- create Loan with
+          bank        = bank
+          borrower    = borrower
+          totalAmount = totalAmount
+          currency    = currency
+          approvedOn  = approvedOn
+          disbursed   = disbursed + amount'
+        -- 2. mint tokens and return its ContractId
+        create Token with
+          issuer   = bank
+          owner    = to
+          amount   = amount'
+          currency = currency
