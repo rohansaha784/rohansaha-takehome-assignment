@@ -1,8 +1,8 @@
 module Loan.Test where
 
 import Daml.Script
-import DA.Date               -- provides `date`
-import DA.Optional (Optional(..))  -- Some / None
+import DA.Date              
+import DA.Optional (Optional(..))  
 import Loan.Approval
 
 -- Happy-path: create & approve a LoanRequest 
@@ -30,3 +30,28 @@ test_LoanWorkflow = script do
     None   -> abort "Loan not found"
 
   assert (loan.amount == 1000.0)
+
+  --  Negative-path: second approval must fail 
+test_DoubleApproveFails : Script ()
+test_DoubleApproveFails = script do
+  borrower <- allocateParty "Alice"
+  bank     <- allocateParty "BankCorp"
+
+  reqCid <- submit borrower do
+    createCmd LoanRequest with
+      borrower
+      bank
+      amount       = 500.0
+      currency     = "USD"
+      termMonths   = 6
+      interestRate = 0.03
+
+  -- first approval succeeds
+  _ <- submit bank do
+    exerciseCmd reqCid ApproveRequest with
+      approvedOn = date 2025 Mar 02
+
+  -- second approval on the same archived request must fail
+  submitMustFail bank do
+    exerciseCmd reqCid ApproveRequest with
+      approvedOn = date 2025 Mar 03
