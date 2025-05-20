@@ -1,0 +1,6 @@
+module Loan.Test where
+
+import Daml.Script
+import DA.Date               -- provides `date`
+import DA.Optional (Optional(..))  -- Some / None
+import Loan.Approval

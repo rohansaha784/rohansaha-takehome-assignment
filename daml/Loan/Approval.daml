@@ -1,6 +1,6 @@
 module Loan.Approval where
 
--- ─────────────────────────── LoanRequest ────────────────────────────
+--  LoanRequest
 template LoanRequest
   with
     borrower     : Party
@@ -28,7 +28,7 @@ template LoanRequest
           interestRate
           approvedOn
 
--- ───────────────────────────── Loan ─────────────────────────────────
+-- Loan 
 template Loan
   with
     borrower     : Party
