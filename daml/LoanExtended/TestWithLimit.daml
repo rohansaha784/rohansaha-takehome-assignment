@@ -1,0 +1,32 @@
+module LoanExtended.TestWithLimit where
+
+import Daml.Script
+import DA.Date      (date, Month(..))
+import LoanExtended.ApprovalWithLimit
+
+test_LoanWithLimitWorkflow : Script ()
+test_LoanWithLimitWorkflow = script do
+  borrower <- allocateParty "Alice"
+  bank     <- allocateParty "BankCorp"
+
+  -- 1. Bank sets a global limit of 1000 USD
+  limCid <- submit bank do
+    createCmd LoanLimit with { bank = bank, limitAmt = 1000.0, currency = "USD" }
+
+  -- 2. Borrower requests 500 USD
+  reqCid <- submit borrower do
+    createCmd LoanRequest with { borrower = borrower, bank = bank, amount = 500.0, currency = "USD" }
+
+  -- 3. Bank approves the request, passing in limCid
+  loanCid <- submit bank do
+    exerciseCmd reqCid ApproveRequest with { limitCid = limCid, approvedOn = date 2025 Mar 1 }
+
+  -- 4. Bank disburses 200 USD
+  loanCid2 <- submit bank do
+    exerciseCmd loanCid Disburse with { to = borrower, amount' = 200.0 }
+
+  -- 5. Attempt to over-disburse 900 USD (should fail)
+  submitMustFail bank do
+    exerciseCmd loanCid2 Disburse with { to = borrower, amount' = 900.0 }
+
+  pure ()

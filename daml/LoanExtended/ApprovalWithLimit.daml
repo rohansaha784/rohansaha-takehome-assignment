@@ -68,7 +68,7 @@ template Loan
     disbursed    : Decimal       -- total already disbursed
   where
     signatory bank, borrower
-    choice Disburse : ContractId Token
+    choice Disburse : ContractId Loan
       with
         to      : Party
         amount' : Decimal
@@ -79,7 +79,7 @@ template Loan
         -- archive the old loan
         archive self
         -- 1. recreate loan with updated disbursed
-        _ <- create Loan with
+        newloanCid <- create Loan with
           bank        = bank
           borrower    = borrower
           totalAmount = totalAmount
@@ -87,8 +87,9 @@ template Loan
           approvedOn  = approvedOn
           disbursed   = disbursed + amount'
         -- 2. mint tokens and return its ContractId
-        create Token with
+        _ <- create Token with
           issuer   = bank
           owner    = to
           amount   = amount'
           currency = currency
+        pure newloanCid
