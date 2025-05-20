@@ -1,11 +1,8 @@
 sdk-version: 2.10.0
-name: rohansaha-takehome-assignment
-version: 1.0.0
-source: daml/Main.daml
-scenario: Main:mainScenario
-parties:
-- Alice
-- Bob
+name: rohansaha-takehome-assignment1
+source: daml
+version: 0.0.1
 dependencies:
-- daml-prim
-- daml-stdlib
+  - daml-prim
+  - daml-stdlib
+  - daml-script
