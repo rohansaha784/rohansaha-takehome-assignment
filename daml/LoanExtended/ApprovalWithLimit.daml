@@ -1,8 +1,11 @@
 module LoanExtended.ApprovalWithLimit where
-import DA.Time       -- for Date
-import DA.Text       -- for Text
 
--- 1. Token template (UTXO-style)
+import DA.Time                     -- for Date
+import Daml.Script (queryContractId)
+import DA.Assert   (assertMsg)
+import DA.Optional (Optional(..))
+
+-- Token template
 template Token
   with
     issuer    : Party
@@ -13,11 +16,48 @@ template Token
     signatory issuer
     observer  owner
 
--- 2. LoanLimit template
+-- LoanLimit template
 template LoanLimit
   with
-    bank       : Party
-    limitAmt   : Decimal
-    currency   : Text
+    bank     : Party
+    limitAmt : Decimal
+    currency : Text
   where
     signatory bank
+
+-- LoanRequest with limit validation
+template LoanRequest
+  with
+    borrower     : Party
+    bank         : Party
+    amount       : Decimal
+    currency     : Text
+    termMonths   : Int
+    interestRate : Decimal
+  where
+    signatory borrower
+    observer  bank
+
+    choice ApproveRequest : ContractId Loan
+      with
+        approvedOn : Date
+      controller bank
+      do
+        -- fetch the bank’s LoanLimit
+        mLimitCid <- queryContractId bank limitCid
+        LoanLimit{limitAmt, currency = curr2} <- case mLimitCid of
+          Some ltd -> pure ltd
+          None     -> abort "No LoanLimit set"
+        -- validate currency match & amount ≤ limit
+        assertMsg "currency mismatch" (curr2 == currency)
+        assertMsg "exceeds bank limit" (amount <= limitAmt)
+        -- create the approved Loan
+        create Loan with
+          borrower
+          bank
+          amount
+          currency
+          termMonths
+          interestRate
+          approvedOn
+          disbursed = 0.0
