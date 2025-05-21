@@ -77,7 +77,7 @@ template Loan
         -- ensure no over-disbursement
         assertMsg "over-disbursement" (disbursed + amount' <= totalAmount)
         -- archive the old loan
-        archive self
+        --archive self
         -- 1. recreate loan with updated disbursed
         newloanCid <- create Loan with
           bank        = bank
