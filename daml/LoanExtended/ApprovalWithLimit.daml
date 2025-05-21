@@ -3,7 +3,7 @@ module LoanExtended.ApprovalWithLimit where
 import DA.Assert   (assertMsg)
 import DA.Optional (Optional(..))
 import DA.Time
-import LoanExtended.Repayment (RepaymentRestriction)
+import LoanExtended.Repayment (RepaymentRestriction(..))
 -- Token template
 template Token
   with
@@ -107,3 +107,50 @@ template Loan
           amount   = amount'
           currency = currency
         pure newloanCid
+
+    choice Repay : ContractId Loan
+      with
+        repayAmt : Decimal
+        restrCid : ContractId RepaymentRestriction
+      controller borrower
+      do
+      -- policy checks
+        RepaymentRestriction{minRepayAmt, currency = polCur} <- fetch restrCid
+        assertMsg "currency mismatch"        (polCur == currency)
+        assertMsg "below minimum repayment"  (repayAmt >= minRepayAmt)
+
+        let outstanding = totalAmount - repaid
+        assertMsg "repayment exceeds outstanding" (repayAmt <= outstanding)
+
+        archive self                                    
+
+        -- full vs partial
+        if repayAmt == outstanding then do
+          -- look up the LoanLimit CID by key
+          mCid <- lookupByKey @LoanLimit (bank, currency) 
+          limCid <- case mCid of
+            Some cid -> pure cid
+            None     -> abort "LoanLimit missing"
+
+          -- fetch  record
+          lim <- fetch limCid
+
+          -- reduce utilisedAmt and close the loan
+          archive limCid
+          _ <- create LoanLimit with
+            bank        = bank
+            limitAmt    = lim.limitAmt
+            utilizedAmt = lim.utilizedAmt - totalAmount
+            currency    = currency
+
+          pure self                               
+        else do
+          newCid <- create Loan with
+            bank        = bank
+            borrower    = borrower
+            totalAmount = totalAmount
+            currency    = currency
+            approvedOn  = approvedOn
+            disbursed   = disbursed
+            repaid      = repaid + repayAmt
+          pure newCid
