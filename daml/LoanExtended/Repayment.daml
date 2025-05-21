@@ -1,0 +1,11 @@
+module LoanExtended.Repayment where
+
+template RepaymentRestriction
+  with
+    bank        : Party
+    minRepayAmt : Decimal      -- minimum repayment in this currency
+    currency    : Text
+  where
+    signatory bank
+    key (bank, currency) : (Party, Text)
+    maintainer key._1
