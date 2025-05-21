@@ -1,0 +1,57 @@
+module LoanExtended.TestRepayment where
+
+import Daml.Script
+import DA.Date (date, Month(..))
+import LoanExtended.ApprovalWithLimit
+import LoanExtended.Repayment
+
+test_RepaymentFlow : Script ()
+test_RepaymentFlow = script do
+  alice <- allocateParty "Alice"
+  bank  <- allocateParty "BankCorp"
+
+  -- Loan limit
+  limCid <- submit bank do
+    createCmd LoanLimit with
+      bank        = bank
+      limitAmt    = 1000.0
+      utilizedAmt = 0.0
+      currency    = "USD"
+
+  -- Repayment policy – bank lists Alice in visibleTo
+  restrCid <- submit bank do
+    createCmd RepaymentRestriction with
+      bank        = bank
+      minRepayAmt = 50.0
+      currency    = "USD"
+      visibleTo   = [alice]       
+
+  -- Alice requests and bank approves a 300-USD loan
+  reqCid <- submit alice do
+    createCmd LoanRequest with
+      borrower = alice
+      bank     = bank
+      amount   = 300.0
+      currency = "USD"
+
+  loanCid <- submit bank do
+    exerciseCmd reqCid ApproveRequest with
+      limitCid   = limCid
+      approvedOn = date 2025 Mar 1
+
+  -- 1. Partial repayment (100) – succeeds
+  loanCid1 <- submit bank do
+    exerciseCmd loanCid Repay with
+      repayAmt = 100.0
+
+  -- 2. Too-small repayment (20) – fails
+  submitMustFail bank do
+    exerciseCmd loanCid1 Repay with
+      repayAmt = 20.0
+
+  -- 3. Final repayment (200) – closes loan
+  _ <- submit bank do
+    exerciseCmd loanCid1 Repay with
+      repayAmt = 200.0
+
+  pure ()

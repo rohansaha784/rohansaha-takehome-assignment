@@ -5,7 +5,9 @@ template RepaymentRestriction
     bank        : Party
     minRepayAmt : Decimal
     currency    : Text
+    visibleTo   : [Party]         -- extra field
   where
     signatory bank
+    observer  visibleTo           -- borrower see the contract
     key (bank, currency) : (Party, Text)
     maintainer key._1

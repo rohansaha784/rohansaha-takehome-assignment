@@ -111,31 +111,28 @@ template Loan
     choice Repay : ContractId Loan
       with
         repayAmt : Decimal
-        restrCid : ContractId RepaymentRestriction
-      controller borrower
+      controller bank
       do
-      -- policy checks
-        RepaymentRestriction{minRepayAmt, currency = polCur} <- fetch restrCid
-        assertMsg "currency mismatch"        (polCur == currency)
-        assertMsg "below minimum repayment"  (repayAmt >= minRepayAmt)
+        -- 1️fetch repayment policy by key  (bank, currency)
+        mPolCid <- lookupByKey @RepaymentRestriction (bank, currency)
+        polCid  <- case mPolCid of
+          Some cid -> pure cid
+          None     -> abort "Repayment policy not found"
+        RepaymentRestriction{minRepayAmt} <- fetch polCid
+
+        assertMsg "below minimum repayment" (repayAmt >= minRepayAmt)
 
         let outstanding = totalAmount - repaid
-        assertMsg "repayment exceeds outstanding" (repayAmt <= outstanding)
+        assertMsg "repayment exceeds outstanding" (repayAmt <= outstanding)                   
 
-        archive self                                    
-
-        -- full vs partial
+        -- full vs. partial repayment
         if repayAmt == outstanding then do
-          -- look up the LoanLimit CID by key
-          mCid <- lookupByKey @LoanLimit (bank, currency) 
-          limCid <- case mCid of
+          mLimCid <- lookupByKey @LoanLimit (bank, currency)
+          limCid  <- case mLimCid of
             Some cid -> pure cid
             None     -> abort "LoanLimit missing"
-
-          -- fetch  record
           lim <- fetch limCid
 
-          -- reduce utilisedAmt and close the loan
           archive limCid
           _ <- create LoanLimit with
             bank        = bank
@@ -143,8 +140,9 @@ template Loan
             utilizedAmt = lim.utilizedAmt - totalAmount
             currency    = currency
 
-          pure self                               
+          pure self                      
         else do
+          -- partial repayment --> recreate loan with higher repaid
           newCid <- create Loan with
             bank        = bank
             borrower    = borrower
