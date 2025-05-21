@@ -3,7 +3,7 @@ module LoanExtended.Repayment where
 template RepaymentRestriction
   with
     bank        : Party
-    minRepayAmt : Decimal      -- minimum repayment in this currency
+    minRepayAmt : Decimal
     currency    : Text
   where
     signatory bank

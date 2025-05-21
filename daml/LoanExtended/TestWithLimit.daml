@@ -11,7 +11,12 @@ test_LoanWithLimitWorkflow = script do
 
   -- 1. Bank sets a global limit of 1000 USD
   limCid <- submit bank do
-    createCmd LoanLimit with { bank = bank, limitAmt = 1000.0, currency = "USD" }
+    createCmd LoanLimit with
+      { bank        = bank
+      , limitAmt    = 1000.0
+      , utilizedAmt = 0.0        -- nothing outstanding yet
+      , currency    = "USD"
+      }
 
   -- 2. Borrower requests 500 USD
   reqCid <- submit borrower do
